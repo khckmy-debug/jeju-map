@@ -31,6 +31,9 @@
   .stop-main { flex:1; }
   .stop-addr { color:#888; font-size:11.5px; }
   .deadline { color:#dc2626; font-size:11.5px; white-space:nowrap; }
+  .leg-time { font-size:11.5px; color:#3b82f6; padding:3px 0 3px 4px; display:flex; align-items:center; gap:4px; }
+  .leg-time:empty { display:none; }
+  .leg-label { background:#fff; color:#1d4ed8; font-size:11px; font-weight:700; padding:2px 6px; border-radius:10px; border:1px solid #93c5fd; box-shadow:0 1px 3px rgba(0,0,0,0.25); white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -59,10 +62,12 @@
     <div class="day-block" style="border-left-color:#3b82f6;">
       <div class="day-title">Day 1 · 9/28(월) — 김포 출발 PM 2시</div>
       <div class="stop-row"><span class="stop-main">① 제주공항 도착</span></div>
+      <div class="leg-time" id="leg-0"></div>
       <div class="stop-row">
         <span class="stop-main">② 제주시간여행휴양펜션 (숙박)<br/><span class="stop-addr">제주시 애월읍 엄장로 17-6</span></span>
         <span class="deadline">마감 9/28</span>
       </div>
+      <div class="leg-time" id="leg-1"></div>
     </div>
 
     <div class="day-block" style="border-left-color:#22c55e;">
@@ -71,10 +76,12 @@
         <span class="stop-main">③ 화조원 (체험)<br/><span class="stop-addr">제주시 애월읍 애원로 804</span></span>
         <span class="deadline">마감 10/9</span>
       </div>
+      <div class="leg-time" id="leg-2"></div>
       <div class="stop-row">
         <span class="stop-main">④ 통나무파크&amp;도치돌목장 (숙박)<br/><span class="stop-addr">제주시 애월읍 도치돌길 303</span></span>
         <span class="deadline">체험권 마감 10/1</span>
       </div>
+      <div class="leg-time" id="leg-3"></div>
     </div>
 
     <div class="day-block" style="border-left-color:#f59e0b;">
@@ -83,10 +90,12 @@
         <span class="stop-main">⑤ 형제도식당 중문본점 (체험)<br/><span class="stop-addr">서귀포시 일주서로 915</span></span>
         <span class="deadline">마감 9/30</span>
       </div>
+      <div class="leg-time" id="leg-4"></div>
       <div class="stop-row">
         <span class="stop-main">⑥ 편백휴낭펜션 (숙박)<br/><span class="stop-addr">서귀포시 성산읍 고성리 1577-5</span></span>
         <span class="deadline">마감 10/4</span>
       </div>
+      <div class="leg-time" id="leg-5"></div>
     </div>
 
     <div class="day-block" style="border-left-color:#a855f7;">
@@ -95,14 +104,17 @@
         <span class="stop-main">⑦ 서귀피안 베이커리 (체험)<br/><span class="stop-addr">서귀포시 성산읍 신양로122번길 17</span></span>
         <span class="deadline">마감 10/3</span>
       </div>
+      <div class="leg-time" id="leg-6"></div>
       <div class="stop-row">
         <span class="stop-main">⑧ 오멘 (체험)<br/><span class="stop-addr">제주시 아란5길 13</span></span>
         <span class="deadline">마감 10/1</span>
       </div>
+      <div class="leg-time" id="leg-7"></div>
       <div class="stop-row">
         <span class="stop-main">⑨ 제주소풍김밥 (포장)<br/><span class="stop-addr">제주시 수덕5길 40</span></span>
         <span class="deadline">마감 10/1</span>
       </div>
+      <div class="leg-time" id="leg-8"></div>
       <div class="stop-row"><span class="stop-main">⑩ 제주공항 출발</span></div>
     </div>
   </div>
@@ -209,15 +221,49 @@
       });
     }
 
+    function fmtDuration(ms){
+      var totalMin = Math.round(ms / 60000);
+      var h = Math.floor(totalMin / 60);
+      var m = totalMin % 60;
+      return h > 0 ? (h + '시간 ' + m + '분') : (m + '분');
+    }
+
     fetch('route.json').then(function(r){
       if (!r.ok) throw new Error('no route.json yet');
       return r.json();
-    }).then(function(pts){
-      if (!pts || !pts.length) throw new Error('empty route');
-      var roadPath = pts.map(function(p){ return new naver.maps.LatLng(p[1], p[0]); });
+    }).then(function(data){
+      if (!data || !data.legs || !data.legs.length) throw new Error('empty route');
+
+      var fullPath = [];
+      data.legs.forEach(function(leg, i){
+        var legLatLngs = leg.path.map(function(p){ return new naver.maps.LatLng(p[1], p[0]); });
+        fullPath = fullPath.concat(legLatLngs);
+
+        // 타임테이블에 이동시간 채우기
+        var el = document.getElementById('leg-' + i);
+        if (el){
+          var km = (leg.distance / 1000).toFixed(1);
+          el.innerHTML = '<span class="leg-label">🚗 이동 약 ' + fmtDuration(leg.duration) + ' (' + km + 'km)</span>';
+        }
+
+        // 지도 위 경로 중간 지점에 소요시간 라벨 표시
+        if (legLatLngs.length){
+          var mid = legLatLngs[Math.floor(legLatLngs.length / 2)];
+          new naver.maps.Marker({
+            position: mid,
+            map: map,
+            icon: {
+              content: '<div class="leg-label">' + fmtDuration(leg.duration) + '</div>',
+              anchor: new naver.maps.Point(-5, 10)
+            },
+            zIndex: 50
+          });
+        }
+      });
+
       new naver.maps.Polyline({
         map: map,
-        path: roadPath,
+        path: fullPath,
         strokeColor: '#3b82f6',
         strokeWeight: 4,
         strokeOpacity: 0.85
