@@ -1,0 +1,73 @@
+name: Build Route
+ 
+on:
+  push:
+    paths:
+      - 'index.html'
+  workflow_dispatch:
+ 
+permissions:
+  contents: write
+ 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - name: Fetch driving route from Naver Directions 5
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: |
+          python3 - <<'EOF'
+          import os, json, urllib.request
+ 
+          # 방문 순서대로 (경도, 위도)
+          stops = [
+              (126.4930, 33.5113),  # 제주공항
+              (126.3096, 33.4614),  # 제주시간여행휴양펜션
+              (126.3399, 33.4425),  # 화조원
+              (126.3550, 33.4350),  # 통나무파크&도치돌목장
+              (126.4100, 33.2500),  # 형제도식당 중문본점
+              (126.8990, 33.4380),  # 편백휴낭펜션
+              (126.9130, 33.4460),  # 서귀피안 베이커리
+              (126.5450, 33.4650),  # 오멘
+              (126.4820, 33.4870),  # 제주소풍김밥
+              (126.4930, 33.5113),  # 제주공항 (복귀)
+          ]
+ 
+          cid = os.environ["NAVER_CLIENT_ID"]
+          csecret = os.environ["NAVER_CLIENT_SECRET"]
+ 
+          full_path = []
+          for i in range(len(stops) - 1):
+              sx, sy = stops[i]
+              gx, gy = stops[i + 1]
+              url = (
+                  "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving"
+                  f"?start={sx},{sy}&goal={gx},{gy}&option=trafast"
+              )
+              req = urllib.request.Request(url, headers={
+                  "x-ncp-apigw-api-key-id": cid,
+                  "x-ncp-apigw-api-key": csecret,
+              })
+              with urllib.request.urlopen(req) as resp:
+                  data = json.loads(resp.read().decode())
+              path = data["route"]["trafast"][0]["path"]  # [[lng,lat], ...]
+              full_path.extend(path)
+ 
+          with open("route.json", "w", encoding="utf-8") as f:
+              json.dump(full_path, f)
+ 
+          print(f"route.json written with {len(full_path)} points")
+          EOF
+ 
+      - name: Commit route.json
+        run: |
+          git config user.name "route-bot"
+          git config user.email "route-bot@users.noreply.github.com"
+          git add route.json
+          git diff --staged --quiet || git commit -m "Update route.json"
+          git push
+ 
