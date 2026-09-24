@@ -43,7 +43,7 @@ jobs:
           if not cid or not csecret:
               raise SystemExit("Secrets NAVER_CLIENT_ID / NAVER_CLIENT_SECRET are empty - check repo Settings > Secrets and variables > Actions")
 
-          full_path = []
+          legs = []
           for i in range(len(stops) - 1):
               sx, sy = stops[i]
               gx, gy = stops[i + 1]
@@ -64,13 +64,20 @@ jobs:
                   print("Status:", e.code)
                   print("Body:", body)
                   raise
-              path = data["route"]["trafast"][0]["path"]  # [[lng,lat], ...]
-              full_path.extend(path)
+              route = data["route"]["trafast"][0]
+              legs.append({
+                  "from_idx": i,
+                  "to_idx": i + 1,
+                  "distance": route["summary"]["distance"],       # meters
+                  "duration": route["summary"]["duration"],       # ms
+                  "path": route["path"],                          # [[lng,lat], ...]
+              })
 
           with open("route.json", "w", encoding="utf-8") as f:
-              json.dump(full_path, f)
+              json.dump({"legs": legs}, f)
 
-          print(f"route.json written with {len(full_path)} points")
+          total_pts = sum(len(l["path"]) for l in legs)
+          print(f"route.json written with {len(legs)} legs, {total_pts} total points")
           EOF
 
       - name: Commit route.json
