@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>제주 체험단 일정 지도</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif; margin:0; padding:16px; background:#f7f7f8; }
+  h1 { font-size:18px; text-align:center; margin:0 0 4px; }
+  .sub { text-align:center; font-size:13px; color:#555; margin-bottom:12px; }
+  #map { width:100%; height:520px; border-radius:10px; border:1px solid #ddd; }
+  .legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; font-size:12.5px; background:#fff; border:1px solid #ddd; border-radius:8px; padding:10px 14px; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; }
+  .warn { margin-top:8px; font-size:12px; color:#dc2626; background:#fff; border:1px solid #ddd; border-radius:8px; padding:8px 14px; }
+  .pin { color:#fff; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.4); }
+  .me { width:18px; height:18px; border-radius:50%; background:#ef4444; border:3px solid #fff; box-shadow:0 0 0 3px rgba(239,68,68,0.35); }
+  .iw { font-size:13px; line-height:1.5; padding:6px 4px; min-width:190px; }
+  .iw a, .iw button { display:inline-block; margin-top:6px; margin-right:6px; padding:4px 8px; border-radius:5px; text-decoration:none; font-size:12px; border:none; cursor:pointer; }
+  .iw .kakao { background:#fee500; color:#000; }
+  .iw .track { background:#3b82f6; color:#fff; }
+  .track-bar { margin-top:10px; background:#fff; border:1px solid #ddd; border-radius:8px; padding:10px 14px; font-size:13px; }
+  .track-bar b { color:#111; }
+  .track-btn { margin-top:6px; background:#111; color:#fff; border:none; border-radius:6px; padding:8px 14px; font-size:13px; cursor:pointer; }
+  .note { font-size:11.5px; color:#888; margin-top:6px; }
+</style>
+</head>
+<body>
+  <h1>제주 체험단 일정 지도</h1>
+  <div class="sub">9/28(월) 김포 출발 ~ 10/1(목) 귀경 · 마커 클릭 → 실시간 거리 추적 시작</div>
+
+  <div id="map"></div>
+
+  <div class="track-bar">
+    <div id="trackStatus">📍 위치 추적이 꺼져 있습니다.</div>
+    <button class="track-btn" id="trackBtn">내 위치 추적 시작</button>
+    <div class="note">※ 직선거리 기준 참고용 예상시간입니다 (평균 시속 40km 가정). 실제 도로 경로·교통 반영 길안내는 마커의 "카카오맵 길찾기"를 이용하세요.</div>
+  </div>
+
+  <div class="legend">
+    <div><span class="dot" style="background:#3b82f6;"></span>Day1 9/28(월) 공항→애월펜션</div>
+    <div><span class="dot" style="background:#22c55e;"></span>Day2 9/29(화) 화조원→도치돌목장</div>
+    <div><span class="dot" style="background:#f59e0b;"></span>Day3 9/30(수) 중문→성산(편백휴낭펜션)</div>
+    <div><span class="dot" style="background:#a855f7;"></span>Day4 10/1(목) 성산→아라동→노형동→공항</div>
+  </div>
+  <div class="warn">⚠ 제주시간여행휴양펜션은 2~3일 전 전화예약 필요 — 예약 여부를 꼭 확인하세요</div>
+
+  <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=oxxrh22lku"></script>
+  <script>
+    var stops = [
+      {n:1, day:1, color:'#3b82f6', name:'제주국제공항', addr:'제주특별자치도 제주시 공항로 2', lat:33.5113, lng:126.4930},
+      {n:2, day:1, color:'#3b82f6', name:'제주시간여행휴양펜션 (숙박)', addr:'제주특별자치도 제주시 애월읍 엄장로 17-6', lat:33.4614, lng:126.3096},
+      {n:3, day:2, color:'#22c55e', name:'화조원', addr:'제주특별자치도 제주시 애월읍 애원로 804', lat:33.4425, lng:126.3399},
+      {n:4, day:2, color:'#22c55e', name:'통나무파크&도치돌목장 (숙박)', addr:'제주특별자치도 제주시 애월읍 도치돌길 303', lat:33.4350, lng:126.3550},
+      {n:5, day:3, color:'#f59e0b', name:'형제도식당 중문본점', addr:'제주특별자치도 서귀포시 일주서로 915', lat:33.2500, lng:126.4100},
+      {n:6, day:3, color:'#f59e0b', name:'편백휴낭펜션 (숙박)', addr:'제주특별자치도 서귀포시 성산읍 고성리 1577-5', lat:33.4380, lng:126.8990},
+      {n:7, day:4, color:'#a855f7', name:'서귀피안 베이커리', addr:'제주특별자치도 서귀포시 성산읍 신양로122번길 17', lat:33.4460, lng:126.9130},
+      {n:8, day:4, color:'#a855f7', name:'오멘', addr:'제주특별자치도 제주시 아란5길 13', lat:33.4650, lng:126.5450},
+      {n:9, day:4, color:'#a855f7', name:'제주소풍김밥 (포장)', addr:'제주특별자치도 제주시 수덕5길 40', lat:33.4870, lng:126.4820}
+    ];
+
+    var map = new naver.maps.Map('map', {
+      center: new naver.maps.LatLng(33.40, 126.55),
+      zoom: 10,
+      scaleControl: true,
+      mapDataControl: false
+    });
+
+    var path = [];
+    var infoWindow = new naver.maps.InfoWindow({ anchorSkew: true });
+    var meMarker = null;
+    var target = null; // {name, lat, lng}
+    var watchId = null;
+
+    function haversineKm(lat1, lng1, lat2, lng2){
+      var R = 6371;
+      var dLat = (lat2-lat1) * Math.PI/180;
+      var dLng = (lng2-lng1) * Math.PI/180;
+      var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+              Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+              Math.sin(dLng/2)*Math.sin(dLng/2);
+      var c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R*c;
+    }
+
+    function updateTrackBar(pos){
+      var statusEl = document.getElementById('trackStatus');
+      if (!target){
+        statusEl.innerHTML = '📍 위치 추적 중 · 지도의 마커를 눌러 "실시간 거리 추적"을 선택하세요.';
+        return;
+      }
+      var distKm = haversineKm(pos.lat, pos.lng, target.lat, target.lng);
+      var etaMin = Math.round((distKm/40)*60);
+      statusEl.innerHTML = '🚗 목적지: <b>' + target.name + '</b> · 직선거리 약 <b>' + distKm.toFixed(1) + 'km</b> · 예상 <b>' + etaMin + '분</b> (참고용)';
+    }
+
+    function setTarget(s){
+      target = {name:s.name, lat:s.lat, lng:s.lng};
+      infoWindow.close();
+      if (meMarker){
+        updateTrackBar(meMarker.getPosition() ?
+          {lat: meMarker.getPosition().y, lng: meMarker.getPosition().x} :
+          {lat: s.lat, lng: s.lng});
+      } else {
+        document.getElementById('trackStatus').innerHTML = '🎯 목적지 설정됨: <b>' + s.name + '</b> · "내 위치 추적 시작"을 눌러주세요.';
+      }
+    }
+
+    stops.forEach(function(s){
+      var pos = new naver.maps.LatLng(s.lat, s.lng);
+      path.push(pos);
+
+      var marker = new naver.maps.Marker({
+        position: pos,
+        map: map,
+        icon: {
+          content: '<div class="pin" style="background:' + s.color + ';">' + s.n + '</div>',
+          size: new naver.maps.Size(26,26),
+          anchor: new naver.maps.Point(13,13)
+        }
+      });
+
+      var kakaoUrl = 'https://map.kakao.com/link/search/' + encodeURIComponent(s.addr);
+      var btnId = 'track-btn-' + s.n;
+      var content = '<div class="iw"><b>' + s.n + '. ' + s.name + '</b><br/>' +
+        '<span style="color:#666;font-size:12px;">' + s.addr + '</span><br/>' +
+        '<a class="kakao" href="' + kakaoUrl + '" target="_blank" rel="noopener">카카오맵 길찾기</a>' +
+        '<button class="track" id="' + btnId + '">실시간 거리 추적</button></div>';
+
+      naver.maps.Event.addListener(marker, 'click', function(){
+        infoWindow.setContent(content);
+        infoWindow.open(map, marker);
+        setTimeout(function(){
+          var btn = document.getElementById(btnId);
+          if (btn) btn.addEventListener('click', function(){ setTarget(s); });
+        }, 0);
+      });
+    });
+
+    new naver.maps.Polyline({
+      map: map,
+      path: path,
+      strokeColor: '#888',
+      strokeWeight: 3,
+      strokeStyle: 'shortdash'
+    });
+
+    var bounds = new naver.maps.LatLngBounds();
+    path.forEach(function(p){ bounds.extend(p); });
+    map.fitBounds(bounds, {top:40, right:40, bottom:40, left:40});
+
+    document.getElementById('trackBtn').addEventListener('click', function(){
+      if (!navigator.geolocation){
+        document.getElementById('trackStatus').innerText = '이 브라우저는 위치 추적을 지원하지 않습니다.';
+        return;
+      }
+      if (watchId !== null) return;
+      document.getElementById('trackStatus').innerText = '위치 권한을 요청 중입니다...';
+      watchId = navigator.geolocation.watchPosition(function(p){
+        var lat = p.coords.latitude, lng = p.coords.longitude;
+        var mpos = new naver.maps.LatLng(lat, lng);
+        if (!meMarker){
+          meMarker = new naver.maps.Marker({
+            position: mpos,
+            map: map,
+            icon: { content: '<div class="me"></div>', size: new naver.maps.Size(18,18), anchor: new naver.maps.Point(9,9) },
+            zIndex: 200
+          });
+        } else {
+          meMarker.setPosition(mpos);
+        }
+        updateTrackBar({lat:lat, lng:lng});
+      }, function(err){
+        document.getElementById('trackStatus').innerText = '위치 접근 실패: ' + err.message + ' (브라우저 위치 권한을 허용해주세요)';
+      }, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+    });
+  </script>
+</body>
+</html>
