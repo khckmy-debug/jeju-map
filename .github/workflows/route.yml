@@ -48,7 +48,7 @@ jobs:
               sx, sy = stops[i]
               gx, gy = stops[i + 1]
               url = (
-                  "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving"
+                  "https://maps.apigw.ntruss.com/map-direction/v1/driving"
                   f"?start={sx},{sy}&goal={gx},{gy}&option=trafast"
               )
               req = urllib.request.Request(url, headers={
