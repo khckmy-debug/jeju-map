@@ -37,8 +37,11 @@ jobs:
               (126.4930, 33.5113),  # 제주공항 (복귀)
           ]
 
-          cid = os.environ["NAVER_CLIENT_ID"]
-          csecret = os.environ["NAVER_CLIENT_SECRET"]
+          cid = os.environ.get("NAVER_CLIENT_ID", "")
+          csecret = os.environ.get("NAVER_CLIENT_SECRET", "")
+          print(f"DEBUG: client id length={len(cid)}, secret length={len(csecret)}")
+          if not cid or not csecret:
+              raise SystemExit("Secrets NAVER_CLIENT_ID / NAVER_CLIENT_SECRET are empty - check repo Settings > Secrets and variables > Actions")
 
           full_path = []
           for i in range(len(stops) - 1):
