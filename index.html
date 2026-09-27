@@ -55,11 +55,18 @@
   .add-row button { background:#eef2ff; border:1px dashed #93c5fd; color:#1d4ed8; border-radius:6px; padding:6px 12px; font-size:12px; cursor:pointer; }
   .hidden { display:none !important; }
   #editHint { font-size:11.5px; color:#555; background:#fffbea; border:1px solid #fde68a; border-radius:8px; padding:8px 14px; margin-top:8px; }
+  .day-filter { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .day-filter button { border:1px solid #ddd; background:#fff; border-radius:20px; padding:6px 14px; font-size:12.5px; cursor:pointer; color:#333; }
+  .day-filter button.active { color:#fff; border-color:transparent; font-weight:700; }
+  .sync-status { font-size:11.5px; color:#2563eb; margin-left:4px; }
+  .sync-status.err { color:#dc2626; }
 </style>
 </head>
 <body>
   <h1>제주 체험단 일정 지도</h1>
   <div class="sub">9/28(월) 김포 출발 ~ 10/1(목) 저녁 8시 비행기 귀경 · 마커 클릭 → 실시간 거리 추적 시작</div>
+
+  <div class="day-filter" id="dayFilterBar"></div>
 
   <div id="map"></div>
 
@@ -78,10 +85,11 @@
     <button id="importBtn">📥 가져오기(붙여넣기)</button>
     <button class="danger" id="resetBtn">↺ 기본 일정으로 초기화</button>
     <span class="save-status" id="saveStatus"></span>
+    <span class="sync-status" id="syncStatus"></span>
   </div>
   <div id="editHint" class="hidden">
     편집 모드에서는 각 장소 옆 ▲▼로 같은 날 안에서 순서를 바꾸고, ◀▶로 다른 날로 옮길 수 있어요. ✏️로 이름·주소·마감·링크를 고칠 수 있고, 각 날짜 밑의 "+ 장소 추가"로 새 장소를 넣을 수 있어요.
-    변경사항은 <b>이 브라우저에만</b> 저장돼요(로컬 저장). 순서를 바꾸면 실제 도로 경로 대신 <span style="color:#b45309;">직선거리 예상 이동시간</span>이 표시돼요 — 정확한 도로 경로가 필요하면 "내보내기"로 복사해서 저에게 보내주세요, 다시 반영해드릴게요.
+    변경사항은 이 브라우저에 저장되고, <b>자동으로 GitHub에 동기화</b>돼서 제가 확인할 수 있어요(더 이상 "내보내기"로 직접 보내지 않아도 됩니다). 순서를 바꾸면 실제 도로 경로 대신 <span style="color:#b45309;">직선거리 예상 이동시간</span>이 표시돼요 — 실제 도로 경로가 필요하면 편집 후 말씀해 주세요, 새 동선으로 다시 계산해드릴게요.
   </div>
 
   <div class="timetable">
@@ -114,11 +122,17 @@
     var DEFAULT_ORDER = DEFAULT_STOPS.map(function(s){ return s.id; });
     var STORAGE_KEY = 'jeju_itinerary_v1';
 
+    var GIST_ID = '47206a4e3e532c3e6102f3840961a77f';
+    var GIST_FILE = 'jeju_itinerary.json';
+    var GIST_TOKEN_KEY = 'jeju_gist_token';
+
     var stops = loadStops();
     var editMode = false;
+    var dayFilter = 0; // 0 = 전체보기, 1~4 = 해당 Day만
     var routeData = null; // cached route.json
     var map, infoWindow, meMarker = null, target = null, watchId = null;
     var dayMarkers = [], dayLines = [];
+    var syncTimer = null;
 
     function loadStops(){
       try {
@@ -136,6 +150,35 @@
       var el = document.getElementById('saveStatus');
       el.textContent = '✓ 저장됨 (' + new Date().toLocaleTimeString('ko-KR') + ')';
       setTimeout(function(){ el.textContent = ''; }, 2500);
+      syncToGist();
+    }
+
+    // ---------- GitHub Gist 자동 동기화 ----------
+    function syncToGist(){
+      var token = localStorage.getItem(GIST_TOKEN_KEY);
+      var statusEl = document.getElementById('syncStatus');
+      if (!token) { if (statusEl){ statusEl.textContent=''; statusEl.classList.remove('err'); } return; }
+      if (syncTimer) clearTimeout(syncTimer);
+      // debounce so rapid successive edits don't spam the API
+      syncTimer = setTimeout(function(){
+        if (statusEl){ statusEl.textContent = '☁️ 동기화 중...'; statusEl.classList.remove('err'); }
+        var body = { files: {} };
+        body.files[GIST_FILE] = { content: JSON.stringify(stops, null, 2) };
+        fetch('https://api.github.com/gists/' + GIST_ID, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': 'token ' + token,
+            'Accept': 'application/vnd.github+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        }).then(function(r){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          if (statusEl) statusEl.textContent = '☁️ 동기화 완료 (' + new Date().toLocaleTimeString('ko-KR') + ')';
+        }).catch(function(){
+          if (statusEl){ statusEl.textContent = '⚠ 동기화 실패'; statusEl.classList.add('err'); }
+        });
+      }, 600);
     }
 
     function sortedStops(){
@@ -194,9 +237,11 @@
     function renderMap(){
       clearMapOverlays();
       var ordered = sortedStops();
+      var filtered = dayFilter === 0 ? ordered : ordered.filter(function(s){ return s.day === dayFilter; });
       var path = [];
 
-      ordered.forEach(function(s, idx){
+      filtered.forEach(function(s){
+        var globalIdx = ordered.indexOf(s);
         var dayInfo = DAYS.filter(function(d){ return d.day === s.day; })[0] || DAYS[0];
         var pos = new naver.maps.LatLng(s.lat, s.lng);
         path.push(pos);
@@ -205,7 +250,7 @@
           position: pos,
           map: map,
           icon: {
-            content: '<div class="pin" style="background:' + dayInfo.color + ';">' + (idx+1) + '</div>',
+            content: '<div class="pin" style="background:' + dayInfo.color + ';">' + (globalIdx+1) + '</div>',
             size: new naver.maps.Size(26,26),
             anchor: new naver.maps.Point(13,13)
           }
@@ -213,7 +258,7 @@
         dayMarkers.push(marker);
 
         var btnId = 'track-btn-' + s.id;
-        var content = '<div class="iw"><b>' + (idx+1) + '. ' + s.name + '</b><br/>' +
+        var content = '<div class="iw"><b>' + (globalIdx+1) + '. ' + s.name + '</b><br/>' +
           '<span style="color:#666;font-size:12px;">' + s.addr + '</span><br/>' +
           '<a class="kakao" href="' + kakaoUrl(s.addr) + '" target="_blank" rel="noopener">카카오맵 길찾기</a>' +
           '<button class="track" id="' + btnId + '">실시간 거리 추적</button></div>';
@@ -228,15 +273,17 @@
         });
       });
 
-      renderRoute(ordered, path);
+      renderRoute(ordered, filtered, path);
 
       var bounds = new naver.maps.LatLngBounds();
       path.forEach(function(p){ bounds.extend(p); });
       if (path.length) map.fitBounds(bounds, {top:40, right:40, bottom:40, left:40});
     }
 
-    function renderRoute(ordered, path){
-      var useReal = isDefaultOrder() && routeData && routeData.legs && routeData.legs.length === ordered.length - 1;
+    function renderRoute(ordered, filtered, path){
+      // Day 필터가 걸려 있으면 route.json의 전체 구간 데이터를 그대로 쓸 수 없으므로
+      // 필터된 구간은 항상 단순 직선 연결로 표시합니다.
+      var useReal = dayFilter === 0 && isDefaultOrder() && routeData && routeData.legs && routeData.legs.length === ordered.length - 1;
 
       if (useReal){
         var fullPath = [];
@@ -301,6 +348,26 @@
       }, function(err){
         document.getElementById('trackStatus').innerText = '위치 접근 실패: ' + err.message + ' (브라우저 위치 권한을 허용해주세요)';
       }, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+    }
+
+    // ---------- Day 필터 ----------
+    function renderDayFilter(){
+      var el = document.getElementById('dayFilterBar');
+      var items = [{day:0, color:'#111', label:'전체보기'}].concat(
+        DAYS.map(function(d){ return {day:d.day, color:d.color, label:'Day' + d.day}; })
+      );
+      el.innerHTML = items.map(function(it){
+        var active = it.day === dayFilter;
+        var style = active ? 'background:' + it.color + ';border-color:' + it.color + ';' : '';
+        return '<button class="' + (active ? 'active' : '') + '" style="' + style + '" data-day="' + it.day + '">' + it.label + '</button>';
+      }).join('');
+      Array.prototype.forEach.call(el.querySelectorAll('button'), function(btn){
+        btn.addEventListener('click', function(){
+          dayFilter = parseInt(btn.getAttribute('data-day'), 10);
+          renderDayFilter();
+          renderMap();
+        });
+      });
     }
 
     // ---------- Legend ----------
@@ -475,6 +542,7 @@
     function escapeAttr(str){ return escapeHtml(str); }
 
     function renderAll(){
+      renderDayFilter();
       renderLegend();
       renderTimetable();
       renderMap();
@@ -494,6 +562,7 @@
         stops = JSON.parse(JSON.stringify(DEFAULT_STOPS));
         localStorage.removeItem(STORAGE_KEY);
         renderAll();
+        syncToGist();
       });
 
       document.getElementById('exportBtn').addEventListener('click', function(){
