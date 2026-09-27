@@ -22,11 +22,16 @@
   .track-bar b { color:#111; }
   .track-btn { margin-top:6px; background:#111; color:#fff; border:none; border-radius:6px; padding:8px 14px; font-size:13px; cursor:pointer; }
   .note { font-size:11.5px; color:#888; margin-top:6px; }
+  .toolbar { margin-top:16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .toolbar button { border:1px solid #ddd; background:#fff; border-radius:6px; padding:7px 12px; font-size:12.5px; cursor:pointer; }
+  .toolbar button.primary { background:#111; color:#fff; border-color:#111; }
+  .toolbar button.danger { color:#dc2626; border-color:#fca5a5; }
+  .save-status { font-size:11.5px; color:#16a34a; }
   .timetable { margin-top:16px; }
   .timetable h2 { font-size:15px; margin:0 0 10px; }
   .day-block { background:#fff; border:1px solid #ddd; border-radius:8px; padding:10px 14px; margin-bottom:10px; border-left-width:5px; border-left-style:solid; }
-  .day-title { font-weight:700; font-size:13.5px; margin-bottom:6px; color:#111; }
-  .stop-row { display:flex; justify-content:space-between; gap:10px; font-size:13px; color:#333; padding:4px 0; border-top:1px dashed #eee; }
+  .day-title { font-weight:700; font-size:13.5px; margin-bottom:6px; color:#111; display:flex; justify-content:space-between; align-items:center; }
+  .stop-row { display:flex; justify-content:space-between; gap:10px; font-size:13px; color:#333; padding:6px 0; border-top:1px dashed #eee; }
   .stop-row:first-of-type { border-top:none; }
   .stop-main { flex:1; }
   .stop-main a.stop-link { color:#111; font-weight:600; text-decoration:none; border-bottom:1px dashed #93c5fd; }
@@ -34,8 +39,22 @@
   .stop-addr { color:#888; font-size:11.5px; }
   .deadline { color:#dc2626; font-size:11.5px; white-space:nowrap; }
   .leg-time { font-size:11.5px; color:#3b82f6; padding:3px 0 3px 4px; display:flex; align-items:center; gap:4px; }
+  .leg-time.approx { color:#d97706; }
   .leg-time:empty { display:none; }
   .leg-label { background:#fff; color:#1d4ed8; font-size:11px; font-weight:700; padding:2px 6px; border-radius:10px; border:1px solid #93c5fd; box-shadow:0 1px 3px rgba(0,0,0,0.25); white-space:nowrap; }
+  .leg-label.approx { color:#b45309; border-color:#fcd34d; }
+  .edit-ctrls { display:flex; gap:4px; margin-left:8px; flex-shrink:0; }
+  .edit-ctrls button { border:1px solid #ddd; background:#f9fafb; border-radius:5px; width:24px; height:24px; font-size:12px; cursor:pointer; line-height:1; padding:0; }
+  .edit-ctrls button:hover { background:#eef2ff; }
+  .edit-form { width:100%; display:flex; flex-direction:column; gap:6px; }
+  .edit-form input { font-size:12.5px; padding:5px 7px; border:1px solid #ccc; border-radius:5px; }
+  .edit-form .row { display:flex; gap:6px; }
+  .edit-form .row2 { display:flex; gap:6px; }
+  .edit-form label { font-size:11px; color:#888; margin-bottom:2px; display:block; }
+  .add-row { text-align:center; padding-top:8px; }
+  .add-row button { background:#eef2ff; border:1px dashed #93c5fd; color:#1d4ed8; border-radius:6px; padding:6px 12px; font-size:12px; cursor:pointer; }
+  .hidden { display:none !important; }
+  #editHint { font-size:11.5px; color:#555; background:#fffbea; border:1px solid #fde68a; border-radius:8px; padding:8px 14px; margin-top:8px; }
 </style>
 </head>
 <body>
@@ -50,109 +69,88 @@
     <div class="note">※ 직선거리 기준 참고용 예상시간입니다 (평균 시속 40km 가정). 실제 도로 경로·교통 반영 길안내는 마커의 "카카오맵 길찾기"를 이용하세요.</div>
   </div>
 
-  <div class="legend">
-    <div><span class="dot" style="background:#3b82f6;"></span>Day1 9/28(월) 공항→노형(88버거)→애월펜션</div>
-    <div><span class="dot" style="background:#22c55e;"></span>Day2 9/29(화) 화조원→도치돌목장</div>
-    <div><span class="dot" style="background:#f59e0b;"></span>Day3 9/30(수) 중문→한경면(스테이오제)</div>
-    <div><span class="dot" style="background:#a855f7;"></span>Day4 10/1(목) 아라동→노형→용담→공항(20:00)</div>
+  <div id="legend" class="legend"></div>
+  <div class="warn">⚠ 제주시간여행휴양펜션은 2~3일 전 전화예약 필요 · 스테이오제도 사전 예약 확정 여부 꼭 확인 · 88버거 제주공항점은 매주 목요일 휴무 · 서귀피안 베이커리(성산, 마감 10/3)는 동선상 왕복 3시간+ 걸려 제외했습니다.</div>
+
+  <div class="toolbar">
+    <button class="primary" id="editToggleBtn">✏️ 일정 편집 켜기</button>
+    <button id="exportBtn">📋 내보내기(복사)</button>
+    <button id="importBtn">📥 가져오기(붙여넣기)</button>
+    <button class="danger" id="resetBtn">↺ 기본 일정으로 초기화</button>
+    <span class="save-status" id="saveStatus"></span>
   </div>
-  <div class="warn">⚠ 제주시간여행휴양펜션은 2~3일 전 전화예약 필요 · 스테이오제도 사전 예약 확정 여부 꼭 확인 · 88버거 제주공항점은 매주 목요일 휴무라 마감일(10/1,목) 대신 Day1(월)에 배치했습니다 · 서귀피안 베이커리(성산, 마감 10/3)는 숙소가 한경면으로 바뀌며 동선상 왕복 3시간+ 걸려 이번 일정에서 제외했습니다 — 필요하면 알려주세요, 다시 넣어드릴게요.</div>
+  <div id="editHint" class="hidden">
+    편집 모드에서는 각 장소 옆 ▲▼로 같은 날 안에서 순서를 바꾸고, ◀▶로 다른 날로 옮길 수 있어요. ✏️로 이름·주소·마감·링크를 고칠 수 있고, 각 날짜 밑의 "+ 장소 추가"로 새 장소를 넣을 수 있어요.
+    변경사항은 <b>이 브라우저에만</b> 저장돼요(로컬 저장). 순서를 바꾸면 실제 도로 경로 대신 <span style="color:#b45309;">직선거리 예상 이동시간</span>이 표시돼요 — 정확한 도로 경로가 필요하면 "내보내기"로 복사해서 저에게 보내주세요, 다시 반영해드릴게요.
+  </div>
 
   <div class="timetable">
     <h2>일정 타임테이블</h2>
-
-    <div class="day-block" style="border-left-color:#3b82f6;">
-      <div class="day-title">Day 1 · 9/28(월) — 김포 출발 PM 2시</div>
-      <div class="stop-row"><span class="stop-main"><a class="stop-link" href="https://map.kakao.com/link/search/제주국제공항" target="_blank" rel="noopener">① 제주공항 도착</a></span></div>
-      <div class="leg-time" id="leg-0"></div>
-      <div class="stop-row">
-        <span class="stop-main"><a class="stop-link" href="https://www.reviewnote.co.kr/campaigns/1425656" target="_blank" rel="noopener">② 88버거 제주공항점 (점심)</a><br/><span class="stop-addr">제주시 노형동 오광로 120</span></span>
-        <span class="deadline">마감 10/1 (목요일 휴무 주의)</span>
-      </div>
-      <div class="leg-time" id="leg-1"></div>
-      <div class="stop-row">
-        <span class="stop-main"><a class="stop-link" href="https://www.seoulouba.co.kr/campaign/?c=426087" target="_blank" rel="noopener">③ 제주시간여행휴양펜션 (숙박)</a><br/><span class="stop-addr">제주시 애월읍 엄장로 17-6</span></span>
-        <span class="deadline">마감 9/28</span>
-      </div>
-      <div class="leg-time" id="leg-2"></div>
-    </div>
-
-    <div class="day-block" style="border-left-color:#22c55e;">
-      <div class="day-title">Day 2 · 9/29(화)</div>
-      <div class="stop-row">
-        <span class="stop-main"><a class="stop-link" href="https://www.reviewnote.co.kr/campaigns/1438971" target="_blank" rel="noopener">④ 화조원 (체험)</a><br/><span class="stop-addr">제주시 애월읍 애원로 804</span></span>
-        <span class="deadline">마감 10/9</span>
-      </div>
-      <div class="leg-time" id="leg-3"></div>
-      <div class="stop-row">
-        <span class="stop-main"><a class="stop-link" href="https://www.revu.net/campaign/1385055" target="_blank" rel="noopener">⑤ 통나무파크&amp;도치돌목장 (숙박)</a><br/><span class="stop-addr">제주시 애월읍 도치돌길 303</span></span>
-        <span class="deadline">체험권 마감 10/1</span>
-      </div>
-      <div class="leg-time" id="leg-4"></div>
-    </div>
-
-    <div class="day-block" style="border-left-color:#f59e0b;">
-      <div class="day-title">Day 3 · 9/30(수)</div>
-      <div class="stop-row">
-        <span class="stop-main"><a class="stop-link" href="https://www.reviewnote.co.kr/campaigns/1424493" target="_blank" rel="noopener">⑥ 형제도식당 중문본점 (체험)</a><br/><span class="stop-addr">서귀포시 일주서로 915</span></span>
-        <span class="deadline">마감 9/30 (오늘까지)</span>
-      </div>
-      <div class="leg-time" id="leg-5"></div>
-      <div class="stop-row">
-        <span class="stop-main"><a class="stop-link" href="https://map.kakao.com/link/search/제주특별자치도 제주시 한경면 불그못로 228" target="_blank" rel="noopener">⑦ 스테이오제 (숙박)</a><br/><span class="stop-addr">제주시 한경면 불그못로 228 (낙천리 811-2)</span></span>
-        <span class="deadline">사전 예약 확인 필요</span>
-      </div>
-      <div class="leg-time" id="leg-6"></div>
-    </div>
-
-    <div class="day-block" style="border-left-color:#a855f7;">
-      <div class="day-title">Day 4 · 10/1(목) — 귀경일, 저녁 8시 비행기</div>
-      <div class="stop-row">
-        <span class="stop-main"><a class="stop-link" href="https://www.reviewnote.co.kr/campaigns/1425679" target="_blank" rel="noopener">⑧ 오멘 (체험)</a><br/><span class="stop-addr">제주시 아란5길 13</span></span>
-        <span class="deadline">마감 10/1</span>
-      </div>
-      <div class="leg-time" id="leg-7"></div>
-      <div class="stop-row">
-        <span class="stop-main"><a class="stop-link" href="https://www.reviewnote.co.kr/campaigns/1421826" target="_blank" rel="noopener">⑨ 제주소풍김밥 (포장)</a><br/><span class="stop-addr">제주시 수덕5길 40</span></span>
-        <span class="deadline">마감 10/1</span>
-      </div>
-      <div class="leg-time" id="leg-8"></div>
-      <div class="stop-row">
-        <span class="stop-main"><a class="stop-link" href="https://www.reviewnote.co.kr/campaigns/1422011" target="_blank" rel="noopener">⑩ 유동커피 소금공장점 (체험)</a><br/><span class="stop-addr">제주시 용마서1길 30 (용담삼동)</span></span>
-        <span class="deadline">마감 10/2</span>
-      </div>
-      <div class="leg-time" id="leg-9"></div>
-      <div class="stop-row"><span class="stop-main"><a class="stop-link" href="https://map.kakao.com/link/search/제주국제공항" target="_blank" rel="noopener">⑪ 제주공항 출발 (PM 8:00)</a></span></div>
-    </div>
+    <div id="timetableBody"></div>
   </div>
 
   <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=oxxrh22lku"></script>
   <script>
-    var stops = [
-      {n:1, day:1, color:'#3b82f6', name:'제주국제공항', addr:'제주특별자치도 제주시 공항로 2', lat:33.5113, lng:126.4930},
-      {n:2, day:1, color:'#3b82f6', name:'88버거 제주공항점', addr:'제주특별자치도 제주시 노형동 오광로 120', lat:33.4855, lng:126.4795},
-      {n:3, day:1, color:'#3b82f6', name:'제주시간여행휴양펜션 (숙박)', addr:'제주특별자치도 제주시 애월읍 엄장로 17-6', lat:33.4614, lng:126.3096},
-      {n:4, day:2, color:'#22c55e', name:'화조원', addr:'제주특별자치도 제주시 애월읍 애원로 804', lat:33.4425, lng:126.3399},
-      {n:5, day:2, color:'#22c55e', name:'통나무파크&도치돌목장 (숙박)', addr:'제주특별자치도 제주시 애월읍 도치돌길 303', lat:33.4350, lng:126.3550},
-      {n:6, day:3, color:'#f59e0b', name:'형제도식당 중문본점', addr:'제주특별자치도 서귀포시 일주서로 915', lat:33.2500, lng:126.4100},
-      {n:7, day:3, color:'#f59e0b', name:'스테이오제 (숙박)', addr:'제주특별자치도 제주시 한경면 불그못로 228 (낙천리 811-2)', lat:33.3380, lng:126.2370},
-      {n:8, day:4, color:'#a855f7', name:'오멘', addr:'제주특별자치도 제주시 아란5길 13', lat:33.4650, lng:126.5450},
-      {n:9, day:4, color:'#a855f7', name:'제주소풍김밥 (포장)', addr:'제주특별자치도 제주시 수덕5길 40', lat:33.4870, lng:126.4820},
-      {n:10, day:4, color:'#a855f7', name:'유동커피 소금공장점', addr:'제주특별자치도 제주시 용마서1길 30 (용담삼동)', lat:33.5090, lng:126.4850}
+    var DAYS = [
+      {day:1, color:'#3b82f6', title:'Day 1 · 9/28(월) — 김포 출발 PM 2시'},
+      {day:2, color:'#22c55e', title:'Day 2 · 9/29(화)'},
+      {day:3, color:'#f59e0b', title:'Day 3 · 9/30(수)'},
+      {day:4, color:'#a855f7', title:'Day 4 · 10/1(목) — 귀경일, 저녁 8시 비행기'}
     ];
 
-    var map = new naver.maps.Map('map', {
-      center: new naver.maps.LatLng(33.40, 126.55),
-      zoom: 10,
-      scaleControl: true,
-      mapDataControl: false
-    });
+    var DEFAULT_STOPS = [
+      {id:'airport-arr', day:1, name:'제주공항 도착', addr:'제주특별자치도 제주시 공항로 2', deadline:'', url:'', lat:33.5113, lng:126.4930},
+      {id:'burger88', day:1, name:'88버거 제주공항점 (점심)', addr:'제주시 노형동 오광로 120', deadline:'마감 10/1 (목요일 휴무 주의)', url:'https://www.reviewnote.co.kr/campaigns/1425656', lat:33.4855, lng:126.4795},
+      {id:'pension1', day:1, name:'제주시간여행휴양펜션 (숙박)', addr:'제주시 애월읍 엄장로 17-6', deadline:'마감 9/28', url:'https://www.seoulouba.co.kr/campaign/?c=426087', lat:33.4614, lng:126.3096},
+      {id:'hwajowon', day:2, name:'화조원 (체험)', addr:'제주시 애월읍 애원로 804', deadline:'마감 10/9', url:'https://www.reviewnote.co.kr/campaigns/1438971', lat:33.4425, lng:126.3399},
+      {id:'dochidol', day:2, name:'통나무파크&도치돌목장 (숙박)', addr:'제주시 애월읍 도치돌길 303', deadline:'체험권 마감 10/1', url:'https://www.revu.net/campaign/1385055', lat:33.4350, lng:126.3550},
+      {id:'hyungje', day:3, name:'형제도식당 중문본점 (체험)', addr:'서귀포시 일주서로 915', deadline:'마감 9/30 (오늘까지)', url:'https://www.reviewnote.co.kr/campaigns/1424493', lat:33.2500, lng:126.4100},
+      {id:'stayoje', day:3, name:'스테이오제 (숙박)', addr:'제주시 한경면 불그못로 228 (낙천리 811-2)', deadline:'사전 예약 확인 필요', url:'', lat:33.3380, lng:126.2370},
+      {id:'omen', day:4, name:'오멘 (체험)', addr:'제주시 아란5길 13', deadline:'마감 10/1', url:'https://www.reviewnote.co.kr/campaigns/1425679', lat:33.4650, lng:126.5450},
+      {id:'sopoong', day:4, name:'제주소풍김밥 (포장)', addr:'제주시 수덕5길 40', deadline:'마감 10/1', url:'https://www.reviewnote.co.kr/campaigns/1421826', lat:33.4870, lng:126.4820},
+      {id:'yudong', day:4, name:'유동커피 소금공장점 (체험)', addr:'제주시 용마서1길 30 (용담삼동)', deadline:'마감 10/2', url:'https://www.reviewnote.co.kr/campaigns/1422011', lat:33.5090, lng:126.4850},
+      {id:'airport-dep', day:4, name:'제주공항 출발 (PM 8:00)', addr:'제주특별자치도 제주시 공항로 2', deadline:'', url:'', lat:33.5113, lng:126.4930}
+    ];
+    var DEFAULT_ORDER = DEFAULT_STOPS.map(function(s){ return s.id; });
+    var STORAGE_KEY = 'jeju_itinerary_v1';
 
-    var path = [];
-    var infoWindow = new naver.maps.InfoWindow({ anchorSkew: true });
-    var meMarker = null;
-    var target = null; // {name, lat, lng}
-    var watchId = null;
+    var stops = loadStops();
+    var editMode = false;
+    var routeData = null; // cached route.json
+    var map, infoWindow, meMarker = null, target = null, watchId = null;
+    var dayMarkers = [], dayLines = [];
+
+    function loadStops(){
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (raw){
+          var parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length) return parsed;
+        }
+      } catch(e){}
+      return JSON.parse(JSON.stringify(DEFAULT_STOPS));
+    }
+
+    function saveStops(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stops));
+      var el = document.getElementById('saveStatus');
+      el.textContent = '✓ 저장됨 (' + new Date().toLocaleTimeString('ko-KR') + ')';
+      setTimeout(function(){ el.textContent = ''; }, 2500);
+    }
+
+    function sortedStops(){
+      // stable sort by day, preserving array order within same day
+      return stops.map(function(s, i){ return {s:s, i:i}; })
+        .sort(function(a,b){ return (a.s.day - b.s.day) || (a.i - b.i); })
+        .map(function(x){ return x.s; });
+    }
+
+    function isDefaultOrder(){
+      var order = sortedStops().map(function(s){ return s.id; });
+      if (order.length !== DEFAULT_ORDER.length) return false;
+      for (var i=0;i<order.length;i++){ if (order[i] !== DEFAULT_ORDER[i]) return false; }
+      return true;
+    }
 
     function haversineKm(lat1, lng1, lat2, lng2){
       var R = 6371;
@@ -163,6 +161,114 @@
               Math.sin(dLng/2)*Math.sin(dLng/2);
       var c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
       return R*c;
+    }
+
+    function fmtDuration(ms){
+      var totalMin = Math.round(ms / 60000);
+      var h = Math.floor(totalMin / 60);
+      var m = totalMin % 60;
+      return h > 0 ? (h + '시간 ' + m + '분') : (m + '분');
+    }
+
+    function kakaoUrl(addr){ return 'https://map.kakao.com/link/search/' + encodeURIComponent(addr); }
+
+    // ---------- Map ----------
+    function initMap(){
+      map = new naver.maps.Map('map', {
+        center: new naver.maps.LatLng(33.40, 126.55),
+        zoom: 10,
+        scaleControl: true,
+        mapDataControl: false
+      });
+      infoWindow = new naver.maps.InfoWindow({ anchorSkew: true });
+      document.getElementById('trackBtn').addEventListener('click', startTracking);
+    }
+
+    function clearMapOverlays(){
+      dayMarkers.forEach(function(m){ m.setMap(null); });
+      dayMarkers = [];
+      dayLines.forEach(function(l){ l.setMap(null); });
+      dayLines = [];
+    }
+
+    function renderMap(){
+      clearMapOverlays();
+      var ordered = sortedStops();
+      var path = [];
+
+      ordered.forEach(function(s, idx){
+        var dayInfo = DAYS.filter(function(d){ return d.day === s.day; })[0] || DAYS[0];
+        var pos = new naver.maps.LatLng(s.lat, s.lng);
+        path.push(pos);
+
+        var marker = new naver.maps.Marker({
+          position: pos,
+          map: map,
+          icon: {
+            content: '<div class="pin" style="background:' + dayInfo.color + ';">' + (idx+1) + '</div>',
+            size: new naver.maps.Size(26,26),
+            anchor: new naver.maps.Point(13,13)
+          }
+        });
+        dayMarkers.push(marker);
+
+        var btnId = 'track-btn-' + s.id;
+        var content = '<div class="iw"><b>' + (idx+1) + '. ' + s.name + '</b><br/>' +
+          '<span style="color:#666;font-size:12px;">' + s.addr + '</span><br/>' +
+          '<a class="kakao" href="' + kakaoUrl(s.addr) + '" target="_blank" rel="noopener">카카오맵 길찾기</a>' +
+          '<button class="track" id="' + btnId + '">실시간 거리 추적</button></div>';
+
+        naver.maps.Event.addListener(marker, 'click', function(){
+          infoWindow.setContent(content);
+          infoWindow.open(map, marker);
+          setTimeout(function(){
+            var btn = document.getElementById(btnId);
+            if (btn) btn.addEventListener('click', function(){ setTarget(s); });
+          }, 0);
+        });
+      });
+
+      renderRoute(ordered, path);
+
+      var bounds = new naver.maps.LatLngBounds();
+      path.forEach(function(p){ bounds.extend(p); });
+      if (path.length) map.fitBounds(bounds, {top:40, right:40, bottom:40, left:40});
+    }
+
+    function renderRoute(ordered, path){
+      var useReal = isDefaultOrder() && routeData && routeData.legs && routeData.legs.length === ordered.length - 1;
+
+      if (useReal){
+        var fullPath = [];
+        routeData.legs.forEach(function(leg, i){
+          var legLatLngs = leg.path.map(function(p){ return new naver.maps.LatLng(p[1], p[0]); });
+          fullPath = fullPath.concat(legLatLngs);
+          if (legLatLngs.length){
+            var mid = legLatLngs[Math.floor(legLatLngs.length / 2)];
+            var m = new naver.maps.Marker({
+              position: mid, map: map,
+              icon: { content: '<div class="leg-label">' + fmtDuration(leg.duration) + '</div>', anchor: new naver.maps.Point(-5, 10) },
+              zIndex: 50
+            });
+            dayMarkers.push(m);
+          }
+        });
+        var line = new naver.maps.Polyline({ map: map, path: fullPath, strokeColor: '#3b82f6', strokeWeight: 4, strokeOpacity: 0.85 });
+        dayLines.push(line);
+      } else {
+        var line2 = new naver.maps.Polyline({ map: map, path: path, strokeColor: '#888', strokeWeight: 3, strokeStyle: 'shortdash' });
+        dayLines.push(line2);
+      }
+    }
+
+    function setTarget(s){
+      target = {name:s.name, lat:s.lat, lng:s.lng};
+      infoWindow.close();
+      if (meMarker){
+        updateTrackBar(meMarker.getPosition() ? {lat: meMarker.getPosition().y, lng: meMarker.getPosition().x} : {lat: s.lat, lng: s.lng});
+      } else {
+        document.getElementById('trackStatus').innerHTML = '🎯 목적지 설정됨: <b>' + s.name + '</b> · "내 위치 추적 시작"을 눌러주세요.';
+      }
     }
 
     function updateTrackBar(pos){
@@ -176,116 +282,7 @@
       statusEl.innerHTML = '🚗 목적지: <b>' + target.name + '</b> · 직선거리 약 <b>' + distKm.toFixed(1) + 'km</b> · 예상 <b>' + etaMin + '분</b> (참고용)';
     }
 
-    function setTarget(s){
-      target = {name:s.name, lat:s.lat, lng:s.lng};
-      infoWindow.close();
-      if (meMarker){
-        updateTrackBar(meMarker.getPosition() ?
-          {lat: meMarker.getPosition().y, lng: meMarker.getPosition().x} :
-          {lat: s.lat, lng: s.lng});
-      } else {
-        document.getElementById('trackStatus').innerHTML = '🎯 목적지 설정됨: <b>' + s.name + '</b> · "내 위치 추적 시작"을 눌러주세요.';
-      }
-    }
-
-    stops.forEach(function(s){
-      var pos = new naver.maps.LatLng(s.lat, s.lng);
-      path.push(pos);
-
-      var marker = new naver.maps.Marker({
-        position: pos,
-        map: map,
-        icon: {
-          content: '<div class="pin" style="background:' + s.color + ';">' + s.n + '</div>',
-          size: new naver.maps.Size(26,26),
-          anchor: new naver.maps.Point(13,13)
-        }
-      });
-
-      var kakaoUrl = 'https://map.kakao.com/link/search/' + encodeURIComponent(s.addr);
-      var btnId = 'track-btn-' + s.n;
-      var content = '<div class="iw"><b>' + s.n + '. ' + s.name + '</b><br/>' +
-        '<span style="color:#666;font-size:12px;">' + s.addr + '</span><br/>' +
-        '<a class="kakao" href="' + kakaoUrl + '" target="_blank" rel="noopener">카카오맵 길찾기</a>' +
-        '<button class="track" id="' + btnId + '">실시간 거리 추적</button></div>';
-
-      naver.maps.Event.addListener(marker, 'click', function(){
-        infoWindow.setContent(content);
-        infoWindow.open(map, marker);
-        setTimeout(function(){
-          var btn = document.getElementById(btnId);
-          if (btn) btn.addEventListener('click', function(){ setTarget(s); });
-        }, 0);
-      });
-    });
-
-    function drawStraightFallback(){
-      new naver.maps.Polyline({
-        map: map,
-        path: path,
-        strokeColor: '#888',
-        strokeWeight: 3,
-        strokeStyle: 'shortdash'
-      });
-    }
-
-    function fmtDuration(ms){
-      var totalMin = Math.round(ms / 60000);
-      var h = Math.floor(totalMin / 60);
-      var m = totalMin % 60;
-      return h > 0 ? (h + '시간 ' + m + '분') : (m + '분');
-    }
-
-    fetch('route.json').then(function(r){
-      if (!r.ok) throw new Error('no route.json yet');
-      return r.json();
-    }).then(function(data){
-      if (!data || !data.legs || !data.legs.length) throw new Error('empty route');
-
-      var fullPath = [];
-      data.legs.forEach(function(leg, i){
-        var legLatLngs = leg.path.map(function(p){ return new naver.maps.LatLng(p[1], p[0]); });
-        fullPath = fullPath.concat(legLatLngs);
-
-        // 타임테이블에 이동시간 채우기
-        var el = document.getElementById('leg-' + i);
-        if (el){
-          var km = (leg.distance / 1000).toFixed(1);
-          el.innerHTML = '<span class="leg-label">🚗 이동 약 ' + fmtDuration(leg.duration) + ' (' + km + 'km)</span>';
-        }
-
-        // 지도 위 경로 중간 지점에 소요시간 라벨 표시
-        if (legLatLngs.length){
-          var mid = legLatLngs[Math.floor(legLatLngs.length / 2)];
-          new naver.maps.Marker({
-            position: mid,
-            map: map,
-            icon: {
-              content: '<div class="leg-label">' + fmtDuration(leg.duration) + '</div>',
-              anchor: new naver.maps.Point(-5, 10)
-            },
-            zIndex: 50
-          });
-        }
-      });
-
-      new naver.maps.Polyline({
-        map: map,
-        path: fullPath,
-        strokeColor: '#3b82f6',
-        strokeWeight: 4,
-        strokeOpacity: 0.85
-      });
-    }).catch(function(){
-      // route.json이 아직 없거나(Actions 미실행) 실패한 경우 직선으로 대체
-      drawStraightFallback();
-    });
-
-    var bounds = new naver.maps.LatLngBounds();
-    path.forEach(function(p){ bounds.extend(p); });
-    map.fitBounds(bounds, {top:40, right:40, bottom:40, left:40});
-
-    document.getElementById('trackBtn').addEventListener('click', function(){
+    function startTracking(){
       if (!navigator.geolocation){
         document.getElementById('trackStatus').innerText = '이 브라우저는 위치 추적을 지원하지 않습니다.';
         return;
@@ -296,12 +293,7 @@
         var lat = p.coords.latitude, lng = p.coords.longitude;
         var mpos = new naver.maps.LatLng(lat, lng);
         if (!meMarker){
-          meMarker = new naver.maps.Marker({
-            position: mpos,
-            map: map,
-            icon: { content: '<div class="me"></div>', size: new naver.maps.Size(18,18), anchor: new naver.maps.Point(9,9) },
-            zIndex: 200
-          });
+          meMarker = new naver.maps.Marker({ position: mpos, map: map, icon: { content: '<div class="me"></div>', size: new naver.maps.Size(18,18), anchor: new naver.maps.Point(9,9) }, zIndex: 200 });
         } else {
           meMarker.setPosition(mpos);
         }
@@ -309,6 +301,238 @@
       }, function(err){
         document.getElementById('trackStatus').innerText = '위치 접근 실패: ' + err.message + ' (브라우저 위치 권한을 허용해주세요)';
       }, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+    }
+
+    // ---------- Legend ----------
+    function renderLegend(){
+      var el = document.getElementById('legend');
+      var ordered = sortedStops();
+      el.innerHTML = DAYS.map(function(d){
+        var names = ordered.filter(function(s){ return s.day === d.day; }).map(function(s){ return s.name.replace(/\s*\(.*?\)\s*/g, ''); });
+        return '<div><span class="dot" style="background:' + d.color + ';"></span>Day' + d.day + ' ' + (names.join(' → ') || '(장소 없음)') + '</div>';
+      }).join('');
+    }
+
+    // ---------- Timetable ----------
+    var editingId = null;
+
+    function moveWithinDay(id, dir){
+      var idx = stops.findIndex(function(s){ return s.id === id; });
+      if (idx < 0) return;
+      var day = stops[idx].day;
+      var sameDay = stops.map(function(s,i){return {s:s,i:i};}).filter(function(x){ return x.s.day === day; });
+      var pos = sameDay.findIndex(function(x){ return x.s.id === id; });
+      var swapPos = pos + dir;
+      if (swapPos < 0 || swapPos >= sameDay.length) return;
+      var i1 = sameDay[pos].i, i2 = sameDay[swapPos].i;
+      var tmp = stops[i1]; stops[i1] = stops[i2]; stops[i2] = tmp;
+      commit();
+    }
+
+    function moveToDay(id, newDay){
+      if (newDay < 1 || newDay > 4) return;
+      var idx = stops.findIndex(function(s){ return s.id === id; });
+      if (idx < 0) return;
+      var item = stops[idx];
+      stops.splice(idx, 1);
+      item.day = newDay;
+      stops.push(item);
+      // normalize storage order to match display order so future moves stay consistent
+      stops = sortedStops();
+      commit();
+    }
+
+    function deleteStop(id){
+      if (!confirm('이 장소를 일정에서 삭제할까요?')) return;
+      stops = stops.filter(function(s){ return s.id !== id; });
+      commit();
+    }
+
+    function addStop(day){
+      var name = prompt('장소 이름을 입력하세요 (예: OO카페 (체험))');
+      if (!name) return;
+      var addr = prompt('주소를 입력하세요 (예: 제주특별자치도 제주시 ...)') || '';
+      var deadline = prompt('마감/메모 (선택, 비워도 됨)') || '';
+      var url = prompt('체험단 링크 URL (선택, 비워도 됨)') || '';
+      var coordStr = prompt('좌표를 알고 있으면 "위도,경도" 형식으로 입력 (모르면 비워두세요 — 같은 날 다른 장소 근처로 대략 배치됩니다)') || '';
+      var lat, lng;
+      if (coordStr.indexOf(',') > -1){
+        var parts = coordStr.split(',').map(function(x){ return parseFloat(x.trim()); });
+        if (!isNaN(parts[0]) && !isNaN(parts[1])){ lat = parts[0]; lng = parts[1]; }
+      }
+      if (lat === undefined){
+        var sameDay = stops.filter(function(s){ return s.day === day; });
+        if (sameDay.length){ lat = sameDay[0].lat; lng = sameDay[0].lng; }
+        else { lat = 33.40; lng = 126.55; }
+      }
+      var id = 'custom-' + Date.now();
+      stops.push({id:id, day:day, name:name, addr:addr, deadline:deadline, url:url, lat:lat, lng:lng});
+      commit();
+    }
+
+    function startEdit(id){ editingId = id; renderAll(); }
+    function cancelEdit(){ editingId = null; renderAll(); }
+
+    function saveEdit(id){
+      var s = stops.filter(function(x){ return x.id === id; })[0];
+      if (!s) return;
+      s.name = document.getElementById('ef-name-' + id).value || s.name;
+      s.addr = document.getElementById('ef-addr-' + id).value || s.addr;
+      s.deadline = document.getElementById('ef-deadline-' + id).value;
+      s.url = document.getElementById('ef-url-' + id).value;
+      editingId = null;
+      commit();
+    }
+
+    function commit(){
+      saveStops();
+      renderAll();
+    }
+
+    function stopRowHtml(s, idx, ordered){
+      var num = idx + 1;
+      var isEditing = editingId === s.id;
+
+      if (isEditing){
+        return '<div class="stop-row"><div class="edit-form">' +
+          '<div class="row2"><input id="ef-name-' + s.id + '" value="' + escapeAttr(s.name) + '" placeholder="이름"/></div>' +
+          '<div class="row2"><input id="ef-addr-' + s.id + '" value="' + escapeAttr(s.addr) + '" placeholder="주소"/></div>' +
+          '<div class="row2"><input id="ef-deadline-' + s.id + '" value="' + escapeAttr(s.deadline) + '" placeholder="마감/메모"/>' +
+          '<input id="ef-url-' + s.id + '" value="' + escapeAttr(s.url) + '" placeholder="링크 URL"/></div>' +
+          '<div class="row2"><button onclick="saveEdit(\'' + s.id + '\')">저장</button><button onclick="cancelEdit()">취소</button></div>' +
+          '</div></div>';
+      }
+
+      var nameHtml = s.url
+        ? '<a class="stop-link" href="' + s.url + '" target="_blank" rel="noopener">' + num + '. ' + escapeHtml(s.name) + '</a>'
+        : '<a class="stop-link" href="' + kakaoUrl(s.addr) + '" target="_blank" rel="noopener">' + num + '. ' + escapeHtml(s.name) + '</a>';
+
+      var addrHtml = s.addr ? '<br/><span class="stop-addr">' + escapeHtml(s.addr) + '</span>' : '';
+      var deadlineHtml = s.deadline ? '<span class="deadline">' + escapeHtml(s.deadline) + '</span>' : '';
+
+      var editCtrls = '';
+      if (editMode){
+        editCtrls = '<div class="edit-ctrls">' +
+          '<button title="같은 날 위로" onclick="moveWithinDay(\'' + s.id + '\',-1)">▲</button>' +
+          '<button title="같은 날 아래로" onclick="moveWithinDay(\'' + s.id + '\',1)">▼</button>' +
+          '<button title="전날로 이동" onclick="moveToDay(\'' + s.id + '\',' + (s.day-1) + ')">◀</button>' +
+          '<button title="다음날로 이동" onclick="moveToDay(\'' + s.id + '\',' + (s.day+1) + ')">▶</button>' +
+          '<button title="수정" onclick="startEdit(\'' + s.id + '\')">✏️</button>' +
+          '<button title="삭제" onclick="deleteStop(\'' + s.id + '\')">🗑</button>' +
+          '</div>';
+      }
+
+      return '<div class="stop-row"><span class="stop-main">' + nameHtml + addrHtml + '</span>' + deadlineHtml + editCtrls + '</div>';
+    }
+
+    function legTimeHtml(fromIdx, toIdx, ordered, realLegs){
+      var useReal = isDefaultOrder() && realLegs && realLegs.length === ordered.length - 1;
+      if (useReal){
+        var leg = realLegs[fromIdx];
+        var km = (leg.distance / 1000).toFixed(1);
+        return '<div class="leg-time"><span class="leg-label">🚗 이동 약 ' + fmtDuration(leg.duration) + ' (' + km + 'km)</span></div>';
+      } else {
+        var a = ordered[fromIdx], b = ordered[toIdx];
+        var km2 = haversineKm(a.lat, a.lng, b.lat, b.lng);
+        var minutes = Math.round((km2/40)*60);
+        return '<div class="leg-time approx"><span class="leg-label approx">🚗 직선거리 예상 ' + minutes + '분 (' + km2.toFixed(1) + 'km)</span></div>';
+      }
+    }
+
+    function renderTimetable(){
+      var ordered = sortedStops();
+      var html = '';
+      var globalIdx = 0;
+
+      DAYS.forEach(function(d){
+        var dayStops = ordered.filter(function(s){ return s.day === d.day; });
+        html += '<div class="day-block" style="border-left-color:' + d.color + ';">';
+        html += '<div class="day-title"><span>' + d.title + '</span></div>';
+
+        dayStops.forEach(function(s, i){
+          var idxInOrdered = ordered.indexOf(s);
+          html += stopRowHtml(s, idxInOrdered, ordered);
+          globalIdx++;
+          if (idxInOrdered < ordered.length - 1){
+            html += legTimeHtml(idxInOrdered, idxInOrdered + 1, ordered, routeData ? routeData.legs : null);
+          }
+        });
+
+        if (editMode){
+          html += '<div class="add-row"><button onclick="addStop(' + d.day + ')">+ 이 날에 장소 추가</button></div>';
+        }
+        html += '</div>';
+      });
+
+      document.getElementById('timetableBody').innerHTML = html;
+    }
+
+    function escapeHtml(str){
+      return String(str || '').replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+      });
+    }
+    function escapeAttr(str){ return escapeHtml(str); }
+
+    function renderAll(){
+      renderLegend();
+      renderTimetable();
+      renderMap();
+    }
+
+    // ---------- Toolbar ----------
+    document.addEventListener('DOMContentLoaded', function(){
+      document.getElementById('editToggleBtn').addEventListener('click', function(){
+        editMode = !editMode;
+        this.textContent = editMode ? '✅ 편집 모드 끄기' : '✏️ 일정 편집 켜기';
+        document.getElementById('editHint').classList.toggle('hidden', !editMode);
+        renderAll();
+      });
+
+      document.getElementById('resetBtn').addEventListener('click', function(){
+        if (!confirm('편집한 내용을 지우고 기본 일정으로 되돌릴까요?')) return;
+        stops = JSON.parse(JSON.stringify(DEFAULT_STOPS));
+        localStorage.removeItem(STORAGE_KEY);
+        renderAll();
+      });
+
+      document.getElementById('exportBtn').addEventListener('click', function(){
+        var json = JSON.stringify(stops, null, 2);
+        if (navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(json).then(function(){
+            alert('일정이 클립보드에 복사됐어요. 저(Claude)에게 붙여넣어 보내주시면 실제 도로 경로로 반영해드릴게요.');
+          }, function(){ prompt('아래 내용을 복사해서 보내주세요:', json); });
+        } else {
+          prompt('아래 내용을 복사해서 보내주세요:', json);
+        }
+      });
+
+      document.getElementById('importBtn').addEventListener('click', function(){
+        var text = prompt('내보내기 한 일정 JSON을 붙여넣으세요:');
+        if (!text) return;
+        try {
+          var parsed = JSON.parse(text);
+          if (!Array.isArray(parsed)) throw new Error('invalid');
+          stops = parsed;
+          saveStops();
+          renderAll();
+        } catch(e){
+          alert('올바른 JSON 형식이 아니에요.');
+        }
+      });
+
+      initMap();
+      renderAll();
+
+      fetch('route.json').then(function(r){
+        if (!r.ok) throw new Error('no route.json');
+        return r.json();
+      }).then(function(data){
+        if (data && data.legs && data.legs.length){
+          routeData = data;
+          renderAll();
+        }
+      }).catch(function(){ /* route.json not available yet; straight-line fallback already shown */ });
     });
   </script>
 </body>
