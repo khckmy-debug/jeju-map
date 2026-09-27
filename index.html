@@ -84,6 +84,7 @@
     <button id="exportBtn">📋 내보내기(복사)</button>
     <button id="importBtn">📥 가져오기(붙여넣기)</button>
     <button class="danger" id="resetBtn">↺ 기본 일정으로 초기화</button>
+    <button id="syncSetupBtn">🔗 동기화 설정</button>
     <span class="save-status" id="saveStatus"></span>
     <span class="sync-status" id="syncStatus"></span>
   </div>
@@ -154,10 +155,23 @@
     }
 
     // ---------- GitHub Gist 자동 동기화 ----------
+    function updateSyncBadge(){
+      var statusEl = document.getElementById('syncStatus');
+      if (!statusEl) return;
+      var token = localStorage.getItem(GIST_TOKEN_KEY);
+      if (token){
+        statusEl.textContent = '☁️ 자동 동기화: 켜짐';
+        statusEl.classList.remove('err');
+      } else {
+        statusEl.textContent = '⚠ 자동 동기화 꺼짐 · "동기화 설정" 버튼을 눌러주세요';
+        statusEl.classList.add('err');
+      }
+    }
+
     function syncToGist(){
       var token = localStorage.getItem(GIST_TOKEN_KEY);
       var statusEl = document.getElementById('syncStatus');
-      if (!token) { if (statusEl){ statusEl.textContent=''; statusEl.classList.remove('err'); } return; }
+      if (!token) { updateSyncBadge(); return; }
       if (syncTimer) clearTimeout(syncTimer);
       // debounce so rapid successive edits don't spam the API
       syncTimer = setTimeout(function(){
@@ -557,6 +571,20 @@
         renderAll();
       });
 
+      document.getElementById('syncSetupBtn').addEventListener('click', function(){
+        var existing = localStorage.getItem(GIST_TOKEN_KEY);
+        var msg = existing
+          ? '이미 동기화 토큰이 설정되어 있어요. 다시 설정하려면 새 토큰을 붙여넣으세요 (취소하면 유지됩니다):'
+          : 'GitHub 개인 액세스 토큰(gist 권한)을 붙여넣으세요.\n\n토큰이 없다면 아래 순서로 만드세요:\n1) github.com/settings/tokens/new?scopes=gist 접속\n2) 이름 입력 후 "gist" 항목만 체크된 상태로 "Generate token" 클릭\n3) 생성된 토큰(ghp_로 시작)을 복사해서 여기 붙여넣기\n\n(이 토큰은 이 브라우저에만 저장되고, gist 쓰기 권한만 가집니다)';
+        var token = prompt(msg, '');
+        if (token === null) return;
+        if (token.trim()){
+          localStorage.setItem(GIST_TOKEN_KEY, token.trim());
+          updateSyncBadge();
+          syncToGist();
+        }
+      });
+
       document.getElementById('resetBtn').addEventListener('click', function(){
         if (!confirm('편집한 내용을 지우고 기본 일정으로 되돌릴까요?')) return;
         stops = JSON.parse(JSON.stringify(DEFAULT_STOPS));
@@ -592,6 +620,7 @@
 
       initMap();
       renderAll();
+      updateSyncBadge();
 
       fetch('route.json').then(function(r){
         if (!r.ok) throw new Error('no route.json');
