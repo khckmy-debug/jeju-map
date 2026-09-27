@@ -5,6 +5,8 @@ on:
     paths:
       - 'index.html'
   workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'   # 안전망: 15분마다도 최신 gist 순서로 재계산
 
 permissions:
   contents: write
@@ -23,20 +25,50 @@ jobs:
           python3 - <<'EOF'
           import os, json, urllib.request
 
-          # 방문 순서대로 (경도, 위도)
-          stops = [
-              (126.4930, 33.5113),  # 제주공항
-              (126.4850, 33.5090),  # 유동커피 소금공장점 (용담삼동)
-              (126.4795, 33.4855),  # 88버거 제주공항점 (노형동)
-              (126.3096, 33.4614),  # 제주시간여행휴양펜션
-              (126.3399, 33.4425),  # 화조원
-              (126.3550, 33.4350),  # 통나무파크&도치돌목장
-              (126.4100, 33.2500),  # 형제도식당 중문본점
-              (126.2370, 33.3380),  # 스테이오제 (한경면 낙천리)
-              (126.5450, 33.4650),  # 오멘
-              (126.4820, 33.4870),  # 제주소풍김밥
-              (126.4930, 33.5113),  # 제주공항 (복귀)
+          GIST_ID = "47206a4e3e532c3e6102f3840961a77f"
+          GIST_FILE = "jeju_itinerary.json"
+
+          # 기본(fallback) 순서 - gist를 못 가져올 때만 사용
+          FALLBACK_STOPS = [
+              {"id":"airport-arr","day":1,"lat":33.5113,"lng":126.4930},
+              {"id":"yudong","day":1,"lat":33.5090,"lng":126.4850},
+              {"id":"burger88","day":1,"lat":33.4855,"lng":126.4795},
+              {"id":"pension1","day":1,"lat":33.4614,"lng":126.3096},
+              {"id":"hwajowon","day":2,"lat":33.4425,"lng":126.3399},
+              {"id":"dochidol","day":2,"lat":33.4350,"lng":126.3550},
+              {"id":"hyungje","day":3,"lat":33.2500,"lng":126.4100},
+              {"id":"stayoje","day":3,"lat":33.3380,"lng":126.2370},
+              {"id":"omen","day":4,"lat":33.4650,"lng":126.5450},
+              {"id":"sopoong","day":4,"lat":33.4870,"lng":126.4820},
+              {"id":"airport-dep","day":4,"lat":33.5113,"lng":126.4930},
           ]
+
+          def fetch_gist_stops():
+              req = urllib.request.Request(
+                  "https://api.github.com/gists/" + GIST_ID,
+                  headers={"Accept": "application/vnd.github+json", "User-Agent": "jeju-map-route-bot"}
+              )
+              with urllib.request.urlopen(req, timeout=20) as resp:
+                  gist = json.loads(resp.read().decode())
+              content = gist["files"][GIST_FILE]["content"]
+              stops = json.loads(content)
+              if not isinstance(stops, list) or not stops:
+                  raise ValueError("empty or invalid gist content")
+              return stops
+
+          try:
+              raw_stops = fetch_gist_stops()
+              print(f"DEBUG: loaded {len(raw_stops)} stops from gist")
+          except Exception as e:
+              print("WARN: failed to fetch gist, using fallback stops:", e)
+              raw_stops = FALLBACK_STOPS
+
+          # index.html의 sortedStops()와 동일한 로직: day 기준 안정 정렬(같은 day는 배열 순서 유지)
+          ordered = sorted(enumerate(raw_stops), key=lambda x: (x[1]["day"], x[0]))
+          ordered_stops = [item[1] for item in ordered]
+
+          order_ids = [s.get("id", "") for s in ordered_stops]
+          stops = [(s["lng"], s["lat"]) for s in ordered_stops]
 
           cid = os.environ.get("NAVER_CLIENT_ID", "")
           csecret = os.environ.get("NAVER_CLIENT_SECRET", "")
@@ -75,10 +107,10 @@ jobs:
               })
 
           with open("route.json", "w", encoding="utf-8") as f:
-              json.dump({"legs": legs}, f)
+              json.dump({"order": order_ids, "legs": legs}, f)
 
           total_pts = sum(len(l["path"]) for l in legs)
-          print(f"route.json written with {len(legs)} legs, {total_pts} total points")
+          print(f"route.json written with {len(legs)} legs, {total_pts} total points, order={order_ids}")
           EOF
 
       - name: Commit route.json
